@@ -7,6 +7,8 @@
   <h2>Organizer Dashboard</h2>
   <div>
     <span class="me-3">Welcome, {{ current_user.username }}!</span>
+    <a href="{{ url_for('main.calendar') }}" class="btn btn-success">Calendar View</a>
+    <a href="{{ url_for('main.customers') }}" class="btn btn-info">Manage Customers</a>
     <a href="{{ url_for('main.logout') }}" class="btn btn-secondary">Logout</a>
   </div>
 </div>
@@ -14,13 +16,16 @@
 <div class="card mt-4">
   <div class="card-header d-flex justify-content-between align-items-center">
     All Jobs
-    <a href="{{ url_for('main.create_job') }}" class="btn btn-primary">Create New Job</a>
+    <div>
+      <a href="{{ url_for('main.generate_recurring') }}" class="btn btn-warning">Generate Recurring Jobs</a>
+      <a href="{{ url_for('main.create_job') }}" class="btn btn-primary">Create New Job</a>
+    </div>
   </div>
   <ul class="list-group list-group-flush">
     {% for job in jobs %}
       <li class="list-group-item d-flex justify-content-between align-items-center">
         <div>
-          <strong>{{ job.customer_name }}</strong> at {{ job.location }}<br>
+          <strong>{{ job.customer.name }}</strong> at {{ job.location }}<br>
           <small>Assigned to: {{ job.worker.username if job.worker else 'Unassigned' }} | Status: {{ job.status }}</small>
         </div>
         <div>
