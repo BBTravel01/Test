@@ -1,10 +1,16 @@
-from flask import render_template, redirect, url_for, flash, request
+from flask import render_template, redirect, url_for, flash, request, jsonify
 from flask_login import login_user, logout_user, login_required, current_user
 from werkzeug.security import generate_password_hash, check_password_hash
-from . import db
-from .models import User, Job, Customer
+from . import db, mail
+from .models import User, Job, Customer, EmailTemplate
 from flask import Blueprint
 from datetime import datetime, timedelta
+from functools import wraps
+from dateutil.relativedelta import relativedelta
+from geopy.geocoders import Nominatim
+from geopy.distance import great_circle
+from flask_mail import Message
+from jinja2 import Template
 
 main = Blueprint('main', __name__)
 
@@ -26,6 +32,7 @@ def register():
 
         new_user = User(
             username=username,
+            email=request.form.get('email'),
             password_hash=generate_password_hash(password, method='pbkdf2:sha256'),
             role=role
         )
@@ -59,8 +66,6 @@ def logout():
     logout_user()
     return redirect(url_for('main.index'))
 
-from functools import wraps
-
 def organizer_required(f):
     @wraps(f)
     def decorated_function(*args, **kwargs):
@@ -68,6 +73,41 @@ def organizer_required(f):
             return redirect(url_for('main.login')) # Or show a 403 error
         return f(*args, **kwargs)
     return decorated_function
+
+# Staff Management
+@main.route('/staff')
+@login_required
+@organizer_required
+def staff():
+    users = User.query.all()
+    return render_template('staff.html', users=users)
+
+@main.route('/edit_user/<int:user_id>', methods=['GET', 'POST'])
+@login_required
+@organizer_required
+def edit_user(user_id):
+    user = User.query.get_or_404(user_id)
+    if request.method == 'POST':
+        user.street = request.form.get('street')
+        user.town = request.form.get('town')
+        user.postcode = request.form.get('postcode')
+
+        # Geocode the address
+        try:
+            geolocator = Nominatim(user_agent="my-scheduler-app")
+            address = f"{user.street}, {user.town}, {user.postcode}"
+            location = geolocator.geocode(address)
+            if location:
+                user.latitude = location.latitude
+                user.longitude = location.longitude
+        except Exception as e:
+            flash(f'Could not geocode address for user. Error: {e}', 'warning')
+
+        db.session.commit()
+        flash(f'{user.username}\'s details updated!', 'success')
+        return redirect(url_for('main.staff'))
+    return render_template('edit_user.html', user=user)
+
 
 @main.route('/dashboard')
 @login_required
@@ -135,9 +175,16 @@ def edit_job(job_id):
         job.scheduled_date=datetime.strptime(scheduled_date_str, '%Y-%m-%d').date() if scheduled_date_str else None
         job.scheduled_time=datetime.strptime(scheduled_time_str, '%H:%M').time() if scheduled_time_str else None
         job.recurrence_rule = request.form.get('recurrence_rule') if request.form.get('recurrence_rule') else None
+        job.notes = request.form.get('notes')
 
         db.session.commit()
         flash('Job updated successfully!', 'success')
+
+        # Send notification email
+        if job.customer.email:
+            send_email("Job Updated", job.customer.email, job=job, customer=job.customer, worker=job.worker)
+        if job.worker.email:
+            send_email("Job Updated", job.worker.email, job=job, customer=job.customer, worker=job.worker)
         return redirect(url_for('main.dashboard'))
 
     workers = User.query.filter_by(role='worker').all()
@@ -173,6 +220,7 @@ def create_job():
             location=location,
             duration=duration,
             worker_id=worker_id,
+            notes=request.form.get('notes'),
             scheduled_date=datetime.strptime(scheduled_date_str, '%Y-%m-%d').date() if scheduled_date_str else None,
             scheduled_time=datetime.strptime(scheduled_time_str, '%H:%M').time() if scheduled_time_str else None,
             recurrence_rule=recurrence_rule if recurrence_rule else None
@@ -186,9 +234,52 @@ def create_job():
     customers = Customer.query.all()
     return render_template('create_job.html', workers=workers, customers=customers)
 
-from flask import jsonify
-
 # Customer Management Routes
+
+@main.route('/api/available_workers')
+@login_required
+@organizer_required
+def available_workers():
+    # Get query params
+    date_str = request.args.get('date')
+    customer_id = request.args.get('customer_id')
+
+    if not date_str or not customer_id:
+        return jsonify({'error': 'Missing date or customer_id parameter'}), 400
+
+    try:
+        job_date = datetime.strptime(date_str, '%Y-%m-%d').date()
+        customer = Customer.query.get(customer_id)
+        if not customer or not customer.latitude:
+            return jsonify({'error': 'Customer not found or not geocoded'}), 404
+    except (ValueError, TypeError):
+        return jsonify({'error': 'Invalid date or customer_id format'}), 400
+
+    # Find unavailable workers
+    unavailable_worker_ids = [
+        job.worker_id for job in Job.query.filter_by(scheduled_date=job_date).all()
+    ]
+
+    # Find available workers
+    available_workers_q = User.query.filter(User.id.notin_(unavailable_worker_ids), User.role == 'worker').all()
+
+    # Calculate distances and prepare response
+    workers_with_distance = []
+    customer_coords = (customer.latitude, customer.longitude)
+
+    for worker in available_workers_q:
+        if worker.latitude and worker.longitude:
+            worker_coords = (worker.latitude, worker.longitude)
+            distance = great_circle(customer_coords, worker_coords).kilometers
+            workers_with_distance.append({'id': worker.id, 'username': worker.username, 'distance': round(distance, 2)})
+        else:
+            # Put workers with no address at the end
+            workers_with_distance.append({'id': worker.id, 'username': worker.username, 'distance': float('inf')})
+
+    # Sort workers by distance
+    sorted_workers = sorted(workers_with_distance, key=lambda w: w['distance'])
+
+    return jsonify(sorted_workers)
 
 @main.route('/api/jobs')
 @login_required
@@ -227,11 +318,26 @@ def customers():
 @organizer_required
 def add_customer():
     if request.method == 'POST':
-        name = request.form.get('name')
-        address = request.form.get('address')
-        phone = request.form.get('phone')
-        email = request.form.get('email')
-        new_customer = Customer(name=name, address=address, phone=phone, email=email)
+        new_customer = Customer(
+            name=request.form.get('name'),
+            phone=request.form.get('phone'),
+            email=request.form.get('email'),
+            notes=request.form.get('notes'),
+            street=request.form.get('street'),
+            town=request.form.get('town'),
+            postcode=request.form.get('postcode')
+        )
+        # Geocode the address
+        try:
+            geolocator = Nominatim(user_agent="my-scheduler-app")
+            address = f"{new_customer.street}, {new_customer.town}, {new_customer.postcode}"
+            location = geolocator.geocode(address)
+            if location:
+                new_customer.latitude = location.latitude
+                new_customer.longitude = location.longitude
+        except Exception as e:
+            flash(f'Could not geocode address. Error: {e}', 'warning')
+
         db.session.add(new_customer)
         db.session.commit()
         flash('Customer added successfully!', 'success')
@@ -245,9 +351,24 @@ def edit_customer(customer_id):
     customer = Customer.query.get_or_404(customer_id)
     if request.method == 'POST':
         customer.name = request.form.get('name')
-        customer.address = request.form.get('address')
         customer.phone = request.form.get('phone')
         customer.email = request.form.get('email')
+        customer.notes = request.form.get('notes')
+        customer.street = request.form.get('street')
+        customer.town = request.form.get('town')
+        customer.postcode = request.form.get('postcode')
+
+        # Geocode the address
+        try:
+            geolocator = Nominatim(user_agent="my-scheduler-app")
+            address = f"{customer.street}, {customer.town}, {customer.postcode}"
+            location = geolocator.geocode(address)
+            if location:
+                customer.latitude = location.latitude
+                customer.longitude = location.longitude
+        except Exception as e:
+            flash(f'Could not geocode address. Error: {e}', 'warning')
+
         db.session.commit()
         flash('Customer updated successfully!', 'success')
         return redirect(url_for('main.customers'))
@@ -262,8 +383,6 @@ def delete_customer(customer_id):
     db.session.commit()
     flash('Customer deleted successfully!', 'success')
     return redirect(url_for('main.customers'))
-
-from dateutil.relativedelta import relativedelta
 
 @main.route('/generate_recurring')
 @login_required
@@ -307,3 +426,92 @@ def generate_recurring():
         flash('No new recurring jobs to generate.', 'info')
 
     return redirect(url_for('main.dashboard'))
+
+# Email Template Management
+@main.route('/templates')
+@login_required
+@organizer_required
+def templates():
+    all_templates = EmailTemplate.query.all()
+    return render_template('templates.html', templates=all_templates)
+
+@main.route('/add_template', methods=['GET', 'POST'])
+@login_required
+@organizer_required
+def add_template():
+    if request.method == 'POST':
+        new_template = EmailTemplate(
+            name=request.form.get('name'),
+            subject=request.form.get('subject'),
+            body=request.form.get('body')
+        )
+        db.session.add(new_template)
+        db.session.commit()
+        flash('Template created successfully!', 'success')
+        return redirect(url_for('main.templates'))
+    return render_template('add_template.html')
+
+@main.route('/edit_template/<int:template_id>', methods=['GET', 'POST'])
+@login_required
+@organizer_required
+def edit_template(template_id):
+    template = EmailTemplate.query.get_or_404(template_id)
+    if request.method == 'POST':
+        template.name = request.form.get('name')
+        template.subject = request.form.get('subject')
+        template.body = request.form.get('body')
+        db.session.commit()
+        flash('Template updated successfully!', 'success')
+        return redirect(url_for('main.templates'))
+    return render_template('edit_template.html', template=template)
+
+@main.route('/delete_template/<int:template_id>', methods=['POST'])
+@login_required
+@organizer_required
+def delete_template(template_id):
+    template = EmailTemplate.query.get_or_404(template_id)
+    db.session.delete(template)
+    db.session.commit()
+    flash('Template deleted successfully!', 'success')
+    return redirect(url_for('main.templates'))
+
+# Helper function to send email
+def send_email(template_name, recipient_email, **kwargs):
+    template = EmailTemplate.query.filter_by(name=template_name).first()
+    if not template or not recipient_email:
+        return # Or flash a message
+
+    subject = Template(template.subject).render(**kwargs)
+    body = Template(template.body).render(**kwargs)
+
+    msg = Message(subject, recipients=[recipient_email], body=body)
+    mail.send(msg)
+    flash(f'Email "{subject}" sent to {recipient_email}.', 'success')
+
+
+@main.route('/job/<int:job_id>/send_email', methods=['GET', 'POST'])
+@login_required
+@organizer_required
+def send_job_email(job_id):
+    job = Job.query.get_or_404(job_id)
+    templates = EmailTemplate.query.all()
+
+    if request.method == 'POST':
+        template_id = request.form.get('template_id')
+        template = EmailTemplate.query.get(template_id)
+
+        # Decide recipient
+        recipient_type = request.form.get('recipient')
+        recipient_email = None
+        if recipient_type == 'customer' and job.customer.email:
+            recipient_email = job.customer.email
+        elif recipient_type == 'worker' and job.worker.email: # Note: User model needs an email field
+            recipient_email = job.worker.email
+
+        if template and recipient_email:
+            send_email(template.name, recipient_email, job=job, customer=job.customer, worker=job.worker)
+        else:
+            flash('Could not send email. Template or recipient email missing.', 'danger')
+        return redirect(url_for('main.job_details', job_id=job.id))
+
+    return render_template('send_email.html', job=job, templates=templates)

@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+
+{% block title %}Add Email Template{% endblock %}
+
+{% block content %}
+<h2 class="mt-5">Add a New Email Template</h2>
+<form method="post" class="mt-4">
+  <div class="mb-3">
+    <label for="name" class="form-label">Template Name</label>
+    <input type="text" class="form-control" id="name" name="name" required placeholder="e.g., 'Job Confirmation', '24-Hour Reminder'">
+    <div class="form-text">A unique name to identify this template.</div>
+  </div>
+  <div class="mb-3">
+    <label for="subject" class="form-label">Email Subject</label>
+    <input type="text" class="form-control" id="subject" name="subject" required>
+  </div>
+  <div class="mb-3">
+    <label for="body" class="form-label">Email Body</label>
+    <textarea class="form-control" id="body" name="body" rows="10" required></textarea>
+    <div class="form-text">
+      {% raw %}You can use placeholders like {{ customer.name }}, {{ job.location }}, {{ job.scheduled_date }}, etc.{% endraw %}
+    </div>
+  </div>
+  <button type="submit" class="btn btn-primary">Add Template</button>
+  <a href="{{ url_for('main.templates') }}" class="btn btn-secondary">Cancel</a>
+</form>
+{% endblock %}

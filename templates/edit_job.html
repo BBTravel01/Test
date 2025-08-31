@@ -30,6 +30,10 @@
       {% endfor %}
     </select>
   </div>
+  <div class="mb-3">
+    <label for="notes" class="form-label">Job Notes</label>
+    <textarea class="form-control" id="notes" name="notes" rows="3">{{ job.notes or '' }}</textarea>
+  </div>
 
   <hr>
   <h5>Scheduling</h5>
@@ -56,4 +60,55 @@
   <button type="submit" class="btn btn-primary">Update Job</button>
   <a href="{{ url_for('main.dashboard') }}" class="btn btn-secondary">Cancel</a>
 </form>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const customerSelect = document.getElementById('customer_id');
+    const dateInput = document.getElementById('scheduled_date');
+    const workerSelect = document.getElementById('worker_id');
+    const currentWorkerId = '{{ job.worker_id }}';
+
+    function fetchAvailableWorkers() {
+        const customerId = customerSelect.value;
+        const date = dateInput.value;
+
+        if (customerId && date) {
+            fetch(`/api/available_workers?customer_id=${customerId}&date=${date}`)
+                .then(response => response.json())
+                .then(data => {
+                    workerSelect.innerHTML = '<option value="">Select a worker...</option>';
+
+                    let isCurrentWorkerAvailable = false;
+                    data.forEach(worker => {
+                        if (worker.id == currentWorkerId) {
+                            isCurrentWorkerAvailable = true;
+                        }
+                        const distance = worker.distance === Infinity ? 'N/A' : `${worker.distance} km`;
+                        const option = new Option(`${worker.username} (~${distance})`, worker.id);
+                        workerSelect.add(option);
+                    });
+
+                    // If the original worker is still available, re-select them.
+                    // Otherwise, add them to the list as "unavailable" but still selected.
+                    if (isCurrentWorkerAvailable) {
+                         workerSelect.value = currentWorkerId;
+                    } else {
+                         const originalWorkerOption = new Option(`{{ job.worker.username }} (Currently Unavailable)`, currentWorkerId);
+                         workerSelect.add(originalWorkerOption);
+                         workerSelect.value = currentWorkerId;
+                    }
+                })
+                .catch(error => console.error('Error fetching workers:', error));
+        }
+    }
+
+    customerSelect.addEventListener('change', fetchAvailableWorkers);
+    dateInput.addEventListener('change', fetchAvailableWorkers);
+
+    // Trigger on page load to populate for the current date
+    fetchAvailableWorkers();
+});
+</script>
 {% endblock %}

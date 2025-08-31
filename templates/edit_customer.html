@@ -9,17 +9,31 @@
     <label for="name" class="form-label">Name</label>
     <input type="text" class="form-control" id="name" name="name" value="{{ customer.name }}" required>
   </div>
+    <div class="row">
+    <div class="col-md-8 mb-3">
+      <label for="street" class="form-label">Street</label>
+      <input type="text" class="form-control" id="street" name="street" value="{{ customer.street or '' }}">
+    </div>
+    <div class="col-md-4 mb-3">
+      <label for="town" class="form-label">Town</label>
+      <input type="text" class="form-control" id="town" name="town" value="{{ customer.town or '' }}">
+    </div>
+  </div>
   <div class="mb-3">
-    <label for="address" class="form-label">Address</label>
-    <input type="text" class="form-control" id="address" name="address" value="{{ customer.address }}">
+    <label for="postcode" class="form-label">Postcode</label>
+    <input type="text" class="form-control" id="postcode" name="postcode" value="{{ customer.postcode or '' }}">
   </div>
   <div class="mb-3">
     <label for="phone" class="form-label">Phone</label>
-    <input type="text" class="form-control" id="phone" name="phone" value="{{ customer.phone }}">
+    <input type="text" class="form-control" id="phone" name="phone" value="{{ customer.phone or '' }}">
   </div>
   <div class="mb-3">
     <label for="email" class="form-label">Email</label>
-    <input type="email" class="form-control" id="email" name="email" value="{{ customer.email }}">
+    <input type="email" class="form-control" id="email" name="email" value="{{ customer.email or '' }}">
+  </div>
+  <div class="mb-3">
+    <label for="notes" class="form-label">Notes</label>
+    <textarea class="form-control" id="notes" name="notes" rows="3">{{ customer.notes or '' }}</textarea>
   </div>
   <button type="submit" class="btn btn-primary">Update Customer</button>
   <a href="{{ url_for('main.customers') }}" class="btn btn-secondary">Cancel</a>

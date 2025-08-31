@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+
+{% block title %}Manage Staff{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mt-5">
+  <h2>Manage Staff</h2>
+</div>
+
+<div class="card mt-4">
+  <ul class="list-group list-group-flush">
+    {% for user in users %}
+      <li class="list-group-item d-flex justify-content-between align-items-center">
+        <div>
+          <strong>{{ user.username }}</strong> ({{ user.role }})<br>
+          <small>{{ user.street or 'No address set' }}</small>
+        </div>
+        <div>
+          <a href="{{ url_for('main.edit_user', user_id=user.id) }}" class="btn btn-sm btn-outline-secondary me-2">Edit Address</a>
+        </div>
+      </li>
+    {% endfor %}
+  </ul>
+</div>
+<a href="{{ url_for('main.dashboard') }}" class="btn btn-secondary mt-3">Back to Dashboard</a>
+{% endblock %}

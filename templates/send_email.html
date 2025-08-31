@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+
+{% block title %}Send Email for Job{% endblock %}
+
+{% block content %}
+<h2 class="mt-5">Send Email for Job: {{ job.customer.name }} on {{ job.scheduled_date }}</h2>
+<form method="post" class="mt-4">
+  <div class="mb-3">
+    <label for="template_id" class="form-label">Select Email Template</label>
+    <select class="form-select" id="template_id" name="template_id" required>
+      {% for template in templates %}
+        <option value="{{ template.id }}">{{ template.name }}</option>
+      {% endfor %}
+    </select>
+  </div>
+  <div class="mb-3">
+    <label for="recipient" class="form-label">Select Recipient</label>
+    <select class="form-select" id="recipient" name="recipient" required>
+      <option value="customer">Customer ({{ job.customer.email or 'No Email' }})</option>
+      <option value="worker">Worker ({{ job.worker.email or 'No Email' }})</option>
+    </select>
+  </div>
+  <button type="submit" class="btn btn-primary">Send Email</button>
+  <a href="{{ url_for('main.job_details', job_id=job.id) }}" class="btn btn-secondary">Cancel</a>
+</form>
+{% endblock %}

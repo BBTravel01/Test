@@ -8,6 +8,8 @@
   <div>
     <span class="me-3">Welcome, {{ current_user.username }}!</span>
     <a href="{{ url_for('main.calendar') }}" class="btn btn-success">Calendar View</a>
+    <a href="{{ url_for('main.templates') }}" class="btn btn-light">Email Templates</a>
+    <a href="{{ url_for('main.staff') }}" class="btn btn-secondary">Manage Staff</a>
     <a href="{{ url_for('main.customers') }}" class="btn btn-info">Manage Customers</a>
     <a href="{{ url_for('main.logout') }}" class="btn btn-secondary">Logout</a>
   </div>

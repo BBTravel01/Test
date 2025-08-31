@@ -22,6 +22,10 @@
     {% endif %}
 
     <div class="mt-4">
+      {% if current_user.role == 'organizer' %}
+      <a href="{{ url_for('main.send_job_email', job_id=job.id) }}" class="btn btn-info">Send Email Notification</a>
+      <hr>
+      {% endif %}
       {% if job.status == 'scheduled' %}
         <form method="post" action="{{ url_for('main.sign_in', job_id=job.id) }}">
           <button type="submit" class="btn btn-success">Sign In and Start Job</button>
