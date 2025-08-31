@@ -9,7 +9,7 @@ main = Blueprint('main', __name__)
 
 @main.route('/')
 def index():
-    return '<h1>Welcome to the Scheduler</h1>'
+    return render_template('index.html')
 
 @main.route('/register', methods=['GET', 'POST'])
 def register():
