@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+
+{% block title %}Job Details{% endblock %}
+
+{% block content %}
+<h2 class="mt-5">Job Details</h2>
+
+<div class="card mt-4">
+  <div class="card-header">
+    {{ job.customer_name }}
+  </div>
+  <div class="card-body">
+    <p><strong>Location:</strong> {{ job.location }}</p>
+    <p><strong>Status:</strong> <span class="badge bg-primary">{{ job.status }}</span></p>
+    <p><strong>Scheduled Duration:</strong> {{ job.duration }} minutes</p>
+
+    {% if job.start_time %}
+      <p><strong>Signed In At:</strong> {{ job.start_time.strftime('%Y-%m-%d %H:%M:%S') }} UTC</p>
+    {% endif %}
+    {% if job.end_time %}
+      <p><strong>Signed Out At:</strong> {{ job.end_time.strftime('%Y-%m-%d %H:%M:%S') }} UTC</p>
+    {% endif %}
+
+    <div class="mt-4">
+      {% if job.status == 'scheduled' %}
+        <form method="post" action="{{ url_for('main.sign_in', job_id=job.id) }}">
+          <button type="submit" class="btn btn-success">Sign In and Start Job</button>
+        </form>
+      {% elif job.status == 'in_progress' %}
+        <form method="post" action="{{ url_for('main.sign_out', job_id=job.id) }}">
+          <button type="submit" class="btn btn-danger">Sign Out and Complete Job</button>
+        </form>
+      {% else %}
+        <p class="text-muted">This job is completed.</p>
+      {% endif %}
+    </div>
+  </div>
+</div>
+
+<a href="{{ url_for('main.dashboard') }}" class="btn btn-secondary mt-3">Back to Dashboard</a>
+{% endblock %}

@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+
+{% block title %}Organizer Dashboard{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mt-5">
+  <h2>Organizer Dashboard</h2>
+  <div>
+    <span class="me-3">Welcome, {{ current_user.username }}!</span>
+    <a href="{{ url_for('main.logout') }}" class="btn btn-secondary">Logout</a>
+  </div>
+</div>
+
+<div class="card mt-4">
+  <div class="card-header d-flex justify-content-between align-items-center">
+    All Jobs
+    <a href="{{ url_for('main.create_job') }}" class="btn btn-primary">Create New Job</a>
+  </div>
+  <ul class="list-group list-group-flush">
+    {% for job in jobs %}
+      <li class="list-group-item d-flex justify-content-between align-items-center">
+        <div>
+          <strong>{{ job.customer_name }}</strong> at {{ job.location }}<br>
+          <small>Assigned to: {{ job.worker.username if job.worker else 'Unassigned' }} | Status: {{ job.status }}</small>
+        </div>
+        <div>
+          <a href="{{ url_for('main.edit_job', job_id=job.id) }}" class="btn btn-sm btn-outline-secondary me-2">Edit</a>
+          <form method="post" action="{{ url_for('main.delete_job', job_id=job.id) }}" style="display:inline;">
+            <button type="submit" class="btn btn-sm btn-outline-danger">Delete</button>
+          </form>
+        </div>
+      </li>
+    {% else %}
+      <li class="list-group-item">No jobs found.</li>
+    {% endfor %}
+  </ul>
+</div>
+{% endblock %}

@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+
+{% block title %}Edit Job{% endblock %}
+
+{% block content %}
+<h2 class="mt-5">Edit Job</h2>
+<form method="post" class="mt-4">
+  <div class="mb-3">
+    <label for="customer_name" class="form-label">Customer Name</label>
+    <input type="text" class="form-control" id="customer_name" name="customer_name" value="{{ job.customer_name }}" required>
+  </div>
+  <div class="mb-3">
+    <label for="location" class="form-label">Location</label>
+    <input type="text" class="form-control" id="location" name="location" value="{{ job.location }}" required>
+  </div>
+  <div class="mb-3">
+    <label for="duration" class="form-label">Estimated Duration (minutes)</label>
+    <input type="number" class="form-control" id="duration" name="duration" value="{{ job.duration }}" required>
+  </div>
+  <div class="mb-3">
+    <label for="worker_id" class="form-label">Assign to Worker</label>
+    <select class="form-select" id="worker_id" name="worker_id" required>
+      {% for worker in workers %}
+        <option value="{{ worker.id }}" {% if worker.id == job.worker_id %}selected{% endif %}>{{ worker.username }}</option>
+      {% endfor %}
+    </select>
+  </div>
+  <button type="submit" class="btn btn-primary">Update Job</button>
+  <a href="{{ url_for('main.dashboard') }}" class="btn btn-secondary">Cancel</a>
+</form>
+{% endblock %}
