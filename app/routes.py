@@ -210,7 +210,34 @@ def delete_job(job_id):
 @organizer_required
 def create_job():
     if request.method == 'POST':
-        customer_id = int(request.form.get('customer_id'))
+        customer_id_str = request.form.get('customer_id')
+
+        if customer_id_str == 'new_customer':
+            # Create a new customer
+            new_customer = Customer(
+                name=request.form.get('new_customer_name'),
+                street=request.form.get('new_customer_street'),
+                town=request.form.get('new_customer_town'),
+                postcode=request.form.get('new_customer_postcode'),
+                email=request.form.get('new_customer_email')
+            )
+            # Geocode the new customer
+            try:
+                geolocator = Nominatim(user_agent="my-scheduler-app")
+                address = f"{new_customer.street}, {new_customer.town}, {new_customer.postcode}"
+                location = geolocator.geocode(address)
+                if location:
+                    new_customer.latitude = location.latitude
+                    new_customer.longitude = location.longitude
+            except Exception as e:
+                flash(f'Could not geocode address for new customer. Error: {e}', 'warning')
+
+            db.session.add(new_customer)
+            db.session.flush() # Flush to get the ID for the new customer
+            customer_id = new_customer.id
+        else:
+            customer_id = int(customer_id_str)
+
         location = request.form.get('location')
         duration = int(request.form.get('duration'))
         worker_id = int(request.form.get('worker_id'))

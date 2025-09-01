@@ -9,11 +9,40 @@
   <div class="mb-3">
     <label for="customer_id" class="form-label">Customer</label>
     <select class="form-select" id="customer_id" name="customer_id" required>
+      <option value="">--- Select an existing customer ---</option>
       {% for customer in customers %}
         <option value="{{ customer.id }}">{{ customer.name }}</option>
       {% endfor %}
+      <option value="new_customer">--- Add a new customer ---</option>
     </select>
   </div>
+
+  <div id="new_customer_fields" style="display: none;">
+    <h5>New Customer Details</h5>
+    <div class="mb-3">
+      <label for="new_customer_name" class="form-label">Name</label>
+      <input type="text" class="form-control" id="new_customer_name" name="new_customer_name">
+    </div>
+     <div class="row">
+      <div class="col-md-8 mb-3">
+        <label for="new_customer_street" class="form-label">Street</label>
+        <input type="text" class="form-control" id="new_customer_street" name="new_customer_street">
+      </div>
+      <div class="col-md-4 mb-3">
+        <label for="new_customer_town" class="form-label">Town</label>
+        <input type="text" class="form-control" id="new_customer_town" name="new_customer_town">
+      </div>
+    </div>
+    <div class="mb-3">
+      <label for="new_customer_postcode" class="form-label">Postcode</label>
+      <input type="text" class="form-control" id="new_customer_postcode" name="new_customer_postcode">
+    </div>
+    <div class="mb-3">
+      <label for="new_customer_email" class="form-label">Email</label>
+      <input type="email" class="form-control" id="new_customer_email" name="new_customer_email">
+    </div>
+  </div>
+
   <div class="mb-3">
     <label for="location" class="form-label">Location</label>
     <input type="text" class="form-control" id="location" name="location" required>
@@ -67,6 +96,7 @@
 <script>
 document.addEventListener('DOMContentLoaded', function() {
     const customerSelect = document.getElementById('customer_id');
+    const newCustomerFields = document.getElementById('new_customer_fields');
     const dateInput = document.getElementById('scheduled_date');
     const workerSelect = document.getElementById('worker_id');
 
@@ -74,7 +104,7 @@ document.addEventListener('DOMContentLoaded', function() {
         const customerId = customerSelect.value;
         const date = dateInput.value;
 
-        if (customerId && date) {
+        if (customerId && date && customerId !== 'new_customer') {
             fetch(`/api/available_workers?customer_id=${customerId}&date=${date}`)
                 .then(response => response.json())
                 .then(data => {
@@ -96,7 +126,16 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
 
-    customerSelect.addEventListener('change', fetchAvailableWorkers);
+    customerSelect.addEventListener('change', function() {
+        if (customerSelect.value === 'new_customer') {
+            newCustomerFields.style.display = 'block';
+        } else {
+            newCustomerFields.style.display = 'none';
+        }
+        // Also trigger the worker fetch
+        fetchAvailableWorkers();
+    });
+
     dateInput.addEventListener('change', fetchAvailableWorkers);
 });
 </script>
