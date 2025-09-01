@@ -7,6 +7,7 @@
   <h2>Organizer Dashboard</h2>
   <div>
     <span class="me-3">Welcome, {{ current_user.username }}!</span>
+    <a href="{{ url_for('main.allocation') }}" class="btn btn-warning">Staff Allocation</a>
     <a href="{{ url_for('main.calendar') }}" class="btn btn-success">Calendar View</a>
     <a href="{{ url_for('main.templates') }}" class="btn btn-light">Email Templates</a>
     <a href="{{ url_for('main.staff') }}" class="btn btn-secondary">Manage Staff</a>

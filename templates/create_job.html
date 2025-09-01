@@ -83,8 +83,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
                     if (data.length > 0) {
                         data.forEach(worker => {
-                            const distance = worker.distance === Infinity ? 'N/A' : `${worker.distance} km`;
-                            const option = new Option(`${worker.username} (~${distance})`, worker.id);
+                            const option = new Option(worker.username, worker.id);
                             workerSelect.add(option);
                         });
                     } else {

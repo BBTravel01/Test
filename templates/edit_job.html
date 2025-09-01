@@ -85,8 +85,7 @@ document.addEventListener('DOMContentLoaded', function() {
                         if (worker.id == currentWorkerId) {
                             isCurrentWorkerAvailable = true;
                         }
-                        const distance = worker.distance === Infinity ? 'N/A' : `${worker.distance} km`;
-                        const option = new Option(`${worker.username} (~${distance})`, worker.id);
+                        const option = new Option(worker.username, worker.id);
                         workerSelect.add(option);
                     });
 

@@ -17,6 +17,10 @@ class User(db.Model, UserMixin):
     latitude = db.Column(db.Float)
     longitude = db.Column(db.Float)
 
+    # New fields for availability
+    contracted_hours = db.Column(db.Integer)
+    work_days = db.Column(db.String(100)) # e.g., "Mon,Tue,Wed,Thu,Fri"
+
     def __repr__(self):
         return f'<User {self.username}>'
 

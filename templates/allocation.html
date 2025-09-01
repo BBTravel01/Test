@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+
+{% block title %}Staff Allocation{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mt-5">
+  <h2>Staff Allocation for the Week</h2>
+  <h5>{{ week_start.strftime('%B %d, %Y') }} - {{ week_end.strftime('%B %d, %Y') }}</h5>
+</div>
+
+<div class="card mt-4">
+  <div class="card-body">
+    <table class="table">
+      <thead>
+        <tr>
+          <th>Staff Member</th>
+          <th>Assigned Hours</th>
+          <th>Contracted Hours</th>
+          <th>Allocation Status</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for data in allocation_data %}
+          {% set variance = data.assigned_hours - data.contracted_hours %}
+          <tr class="
+            {% if variance > 0 %}
+              table-danger
+            {% elif data.assigned_hours < data.contracted_hours and data.assigned_hours > 0 %}
+              table-warning
+            {% elif data.assigned_hours == 0 and data.contracted_hours > 0 %}
+              table-secondary
+            {% else %}
+              table-success
+            {% endif %}
+          ">
+            <td>{{ data.worker.username }}</td>
+            <td>{{ "%.2f"|format(data.assigned_hours) }}</td>
+            <td>{{ "%.2f"|format(data.contracted_hours) }}</td>
+            <td>
+              {% if variance > 0 %}
+                Over-allocated by {{ "%.2f"|format(variance) }} hours
+              {% elif variance < 0 %}
+                Under-allocated by {{ "%.2f"|format(variance|abs) }} hours
+              {% else %}
+                Fully allocated
+              {% endif %}
+            </td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+<a href="{{ url_for('main.dashboard') }}" class="btn btn-secondary mt-3">Back to Dashboard</a>
+{% endblock %}

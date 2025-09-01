@@ -4,7 +4,7 @@ from werkzeug.security import generate_password_hash, check_password_hash
 from . import db, mail
 from .models import User, Job, Customer, EmailTemplate
 from flask import Blueprint
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, date
 from functools import wraps
 from dateutil.relativedelta import relativedelta
 from geopy.geocoders import Nominatim
@@ -91,6 +91,10 @@ def edit_user(user_id):
         user.street = request.form.get('street')
         user.town = request.form.get('town')
         user.postcode = request.form.get('postcode')
+        user.contracted_hours = int(request.form.get('contracted_hours') or 0)
+
+        work_days = request.form.getlist('work_days')
+        user.work_days = ','.join(work_days)
 
         # Geocode the address
         try:
@@ -240,7 +244,6 @@ def create_job():
 @login_required
 @organizer_required
 def available_workers():
-    # Get query params
     date_str = request.args.get('date')
     customer_id = request.args.get('customer_id')
 
@@ -255,15 +258,18 @@ def available_workers():
     except (ValueError, TypeError):
         return jsonify({'error': 'Invalid date or customer_id format'}), 400
 
-    # Find unavailable workers
     unavailable_worker_ids = [
         job.worker_id for job in Job.query.filter_by(scheduled_date=job_date).all()
     ]
 
-    # Find available workers
-    available_workers_q = User.query.filter(User.id.notin_(unavailable_worker_ids), User.role == 'worker').all()
+    day_of_week = job_date.strftime('%a')
+    available_workers_q = User.query.filter(
+        User.id.notin_(unavailable_worker_ids),
+        User.role == 'worker',
+        User.work_days.isnot(None),
+        User.work_days.contains(day_of_week)
+    ).all()
 
-    # Calculate distances and prepare response
     workers_with_distance = []
     customer_coords = (customer.latitude, customer.longitude)
 
@@ -273,10 +279,8 @@ def available_workers():
             distance = great_circle(customer_coords, worker_coords).kilometers
             workers_with_distance.append({'id': worker.id, 'username': worker.username, 'distance': round(distance, 2)})
         else:
-            # Put workers with no address at the end
             workers_with_distance.append({'id': worker.id, 'username': worker.username, 'distance': float('inf')})
 
-    # Sort workers by distance
     sorted_workers = sorted(workers_with_distance, key=lambda w: w['distance'])
 
     return jsonify(sorted_workers)
@@ -474,6 +478,34 @@ def delete_template(template_id):
     db.session.commit()
     flash('Template deleted successfully!', 'success')
     return redirect(url_for('main.templates'))
+
+@main.route('/allocation')
+@login_required
+@organizer_required
+def allocation():
+    today = date.today()
+    start_of_week = today - timedelta(days=today.weekday())
+    end_of_week = start_of_week + timedelta(days=6)
+
+    workers = User.query.filter_by(role='worker').all()
+
+    allocation_data = []
+    for worker in workers:
+        jobs_this_week = Job.query.filter(
+            Job.worker_id == worker.id,
+            Job.scheduled_date >= start_of_week,
+            Job.scheduled_date <= end_of_week
+        ).all()
+
+        total_hours_this_week = sum(job.duration for job in jobs_this_week) / 60.0
+
+        allocation_data.append({
+            'worker': worker,
+            'assigned_hours': total_hours_this_week,
+            'contracted_hours': worker.contracted_hours or 0
+        })
+
+    return render_template('allocation.html', allocation_data=allocation_data, week_start=start_of_week, week_end=end_of_week)
 
 # Helper function to send email
 def send_email(template_name, recipient_email, **kwargs):
